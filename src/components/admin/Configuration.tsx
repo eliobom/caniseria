@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, RefreshCw, Download, Upload, Trash2, Eye, Settings, Phone, Mail, Clock, MapPin } from 'lucide-react';
+import { Save, RefreshCw, Download, Upload, Trash2, Eye, Settings, Phone, Mail, Clock, MapPin, Type, Layout } from 'lucide-react';
 import {
   getSystemConfigurations,
   updateSystemConfiguration,
@@ -19,6 +19,20 @@ interface ConfigData {
   info_bar_message: string;
   info_bar_secondary: string;
   info_bar_active: string;
+  // Nuevos campos para textos de la pantalla de inicio
+  hero_title: string;
+  hero_subtitle: string;
+  offers_section_title: string;
+  categories_section_title: string;
+  // Nuevos campos para el footer
+  footer_company_name: string;
+  footer_description: string;
+  footer_address: string;
+  footer_phone: string;
+  footer_email: string;
+  footer_social_facebook: string;
+  footer_social_instagram: string;
+  footer_active: string;
 }
 
 interface Message {
@@ -38,7 +52,20 @@ const Configuration: React.FC = () => {
     delivery_time: '24-48 horas',
     info_bar_message: '',
     info_bar_secondary: '',
-    info_bar_active: 'true'
+    info_bar_active: 'true',
+    // Nuevos campos
+    hero_title: 'Carnicería Premium',
+    hero_subtitle: 'Las mejores carnes frescas, seleccionadas especialmente para tu mesa. Calidad premium, servicio excepcional.',
+    offers_section_title: 'Ofertas del Día',
+    categories_section_title: 'Nuestras Categorías',
+    footer_company_name: 'LA ALIANZA CARNICERIAS',
+    footer_description: 'Tu carnicería de confianza con las mejores carnes premium de Santiago.',
+    footer_address: 'Santiago, Chile',
+    footer_phone: '+56912345678',
+    footer_email: 'contacto@laalianza.cl',
+    footer_social_facebook: '',
+    footer_social_instagram: '',
+    footer_active: 'true'
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -51,27 +78,68 @@ const Configuration: React.FC = () => {
     loadConfiguration();
   }, []);
 
+  // Helpers de parseo seguro
+  const parseArraySafe = (val: any): string[] => {
+    try {
+      if (Array.isArray(val)) return val as string[];
+      if (typeof val === 'string' && val.trim().length) {
+        const p = JSON.parse(val);
+        return Array.isArray(p) ? p : [];
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  };
+  const parseObjectSafe = (val: any): Record<string, any> => {
+    try {
+      if (val && typeof val === 'object' && !Array.isArray(val)) return val as Record<string, any>;
+      if (typeof val === 'string' && val.trim().length) {
+        const p = JSON.parse(val);
+        return p && typeof p === 'object' && !Array.isArray(p) ? p : {};
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  };
+
   const loadConfiguration = async () => {
     try {
       setIsLoading(true);
       const configObj = await getConfigurationsAsObject();
-      
+
       setConfigData({
-        admin_email: configObj.admin_email || '',
-        whatsapp_number: configObj.whatsapp_number || '+56912345678',
-        shipping_cost: configObj.shipping_cost || '3000',
-        minimum_order: configObj.minimum_order || '20000',
-        available_communes: typeof configObj.available_communes === 'string' 
-          ? JSON.parse(configObj.available_communes || '[]')
-          : configObj.available_communes || [],
-        confirmation_message: configObj.confirmation_message || 'Gracias por tu pedido. Te contactaremos pronto.',
-        business_hours: typeof configObj.business_hours === 'string'
-          ? JSON.parse(configObj.business_hours || '{}')
-          : configObj.business_hours || {},
-        delivery_time: configObj.delivery_time || '24-48 horas',
-        info_bar_message: configObj.info_bar_message || '',
-        info_bar_secondary: configObj.info_bar_secondary || '',
-        info_bar_active: configObj.info_bar_active || 'true'
+        admin_email: String(configObj.admin_email || ''),
+        whatsapp_number: String(configObj.whatsapp_number || '+56912345678'),
+        shipping_cost: String(configObj.shipping_cost || '3000'),
+        minimum_order: String(configObj.minimum_order || '20000'),
+        available_communes: parseArraySafe(configObj.available_communes),
+        confirmation_message: String(configObj.confirmation_message || 'Gracias por tu pedido. Te contactaremos pronto.'),
+        business_hours: parseObjectSafe(configObj.business_hours),
+        delivery_time: String(configObj.delivery_time || '24-48 horas'),
+        info_bar_message: String(configObj.info_bar_message || ''),
+        info_bar_secondary: String(configObj.info_bar_secondary || ''),
+        info_bar_active: String(configObj.info_bar_active || 'true'),
+        // Campos de inicio
+        hero_title: String(configObj.hero_title || 'Carnicería Premium'),
+        hero_subtitle: String(configObj.hero_subtitle || 'Las mejores carnes frescas, seleccionadas especialmente para tu mesa. Calidad premium, servicio excepcional.'),
+        offers_section_title: String(configObj.offers_section_title || 'Ofertas del Día'),
+        categories_section_title: String(configObj.categories_section_title || 'Nuestras Categorías'),
+        // Footer
+        footer_company_name: String(configObj.footer_company_name || 'LA ALIANZA CARNICERIAS'),
+        footer_description: String(configObj.footer_description || 'Tu carnicería de confianza con las mejores carnes premium de Santiago.'),
+        footer_address: String(configObj.footer_address || 'Santiago, Chile'),
+        footer_phone: String(configObj.footer_phone || '+56912345678'),
+        footer_email: String(configObj.footer_email || 'contacto@laalianza.cl'),
+        footer_social_facebook: String(configObj.footer_social_facebook || ''),
+        footer_social_instagram: String(configObj.footer_social_instagram || ''),
+        footer_active: String(configObj.footer_active || 'true'),
+        footer_phone: configObj.footer_phone || '+56912345678',
+        footer_email: configObj.footer_email || 'contacto@laalianza.cl',
+        footer_social_facebook: configObj.footer_social_facebook || '',
+        footer_social_instagram: configObj.footer_social_instagram || '',
+        footer_active: configObj.footer_active || 'true'
       });
     } catch (error) {
       console.error('Error loading configuration:', error);
@@ -113,6 +181,9 @@ const Configuration: React.FC = () => {
           });
         }
       }
+      
+      // NUEVO: Notificar cambios globalmente
+      window.dispatchEvent(new CustomEvent('configurationUpdated'));
       
       showMessage('success', 'Configuración guardada exitosamente');
     } catch (error) {
@@ -433,6 +504,185 @@ const Configuration: React.FC = () => {
                   className="mr-2"
                 />
                 <label className="text-sm text-gray-300">Mostrar barra de información</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Nueva sección: Textos de la Pantalla de Inicio */}
+        <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
+          <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+            <Type className="mr-2" size={20} />
+            Textos de la Pantalla de Inicio
+          </h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Título Principal (Hero)
+              </label>
+              <input
+                type="text"
+                value={configData.hero_title}
+                onChange={(e) => handleInputChange('hero_title', e.target.value)}
+                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-yellow-400 outline-none"
+                placeholder="Carnicería Premium"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Subtítulo Principal
+              </label>
+              <textarea
+                value={configData.hero_subtitle}
+                onChange={(e) => handleInputChange('hero_subtitle', e.target.value)}
+                rows={3}
+                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-yellow-400 outline-none resize-none"
+                placeholder="Las mejores carnes frescas..."
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Título Sección Ofertas
+                </label>
+                <input
+                  type="text"
+                  value={configData.offers_section_title}
+                  onChange={(e) => handleInputChange('offers_section_title', e.target.value)}
+                  className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-yellow-400 outline-none"
+                  placeholder="Ofertas del Día"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Título Sección Categorías
+                </label>
+                <input
+                  type="text"
+                  value={configData.categories_section_title}
+                  onChange={(e) => handleInputChange('categories_section_title', e.target.value)}
+                  className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-yellow-400 outline-none"
+                  placeholder="Nuestras Categorías"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Nueva sección: Configuración del Footer */}
+        <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
+          <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+            <Layout className="mr-2" size={20} />
+            Barra Inferior (Footer)
+          </h2>
+          
+          <div className="space-y-4">
+            <div className="flex items-center mb-4">
+              <input
+                type="checkbox"
+                checked={configData.footer_active === 'true'}
+                onChange={(e) => handleInputChange('footer_active', e.target.checked ? 'true' : 'false')}
+                className="mr-2"
+              />
+              <label className="text-sm text-gray-300">Mostrar barra inferior</label>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Nombre de la Empresa
+              </label>
+              <input
+                type="text"
+                value={configData.footer_company_name}
+                onChange={(e) => handleInputChange('footer_company_name', e.target.value)}
+                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-yellow-400 outline-none"
+                placeholder="LA ALIANZA CARNICERIAS"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Descripción
+              </label>
+              <textarea
+                value={configData.footer_description}
+                onChange={(e) => handleInputChange('footer_description', e.target.value)}
+                rows={2}
+                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-yellow-400 outline-none resize-none"
+                placeholder="Tu carnicería de confianza..."
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Dirección
+                </label>
+                <input
+                  type="text"
+                  value={configData.footer_address}
+                  onChange={(e) => handleInputChange('footer_address', e.target.value)}
+                  className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-yellow-400 outline-none"
+                  placeholder="Santiago, Chile"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Teléfono Footer
+                </label>
+                <input
+                  type="text"
+                  value={configData.footer_phone}
+                  onChange={(e) => handleInputChange('footer_phone', e.target.value)}
+                  className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-yellow-400 outline-none"
+                  placeholder="+56912345678"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Email Footer
+              </label>
+              <input
+                type="email"
+                value={configData.footer_email}
+                onChange={(e) => handleInputChange('footer_email', e.target.value)}
+                className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-yellow-400 outline-none"
+                placeholder="contacto@laalianza.cl"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Facebook URL
+                </label>
+                <input
+                  type="url"
+                  value={configData.footer_social_facebook}
+                  onChange={(e) => handleInputChange('footer_social_facebook', e.target.value)}
+                  className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-yellow-400 outline-none"
+                  placeholder="https://facebook.com/laalianza"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Instagram URL
+                </label>
+                <input
+                  type="url"
+                  value={configData.footer_social_instagram}
+                  onChange={(e) => handleInputChange('footer_social_instagram', e.target.value)}
+                  className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:border-yellow-400 outline-none"
+                  placeholder="https://instagram.com/laalianza"
+                />
               </div>
             </div>
           </div>

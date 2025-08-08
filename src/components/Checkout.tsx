@@ -268,7 +268,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onViewChange }) => {
         setAppliedCoupon({
           code: couponCode.toUpperCase(),
           type: 'fixed', // Se usa el monto calculado por la función SQL
-          value: result.discountAmount,
+          value: Number(result.discountAmount) || 0,
           couponId: result.couponId
         });
         setCouponCode('');
@@ -289,15 +289,24 @@ const Checkout: React.FC<CheckoutProps> = ({ onViewChange }) => {
 
   const calculateDiscount = () => {
     if (!appliedCoupon) return 0;
-    
+    // Asegurar valores numéricos
+    const currentTotal = Number(total) || 0;
     if (appliedCoupon.type === 'percentage') {
-      return Math.round(total * (appliedCoupon.value / 100));
+      const pct = Number(appliedCoupon.value) || 0;
+      const raw = currentTotal * (pct / 100);
+      const discount = Math.round(raw);
+      return Math.max(0, Math.min(discount, currentTotal));
     }
-    return appliedCoupon.value;
+    const fixed = Number(appliedCoupon.value) || 0;
+    return Math.max(0, Math.min(Math.round(fixed), currentTotal));
   };
 
   const getFinalTotal = () => {
-    return total - calculateDiscount() + getDeliveryPrice(formData.commune);
+    const currentTotal = Number(total) || 0;
+    const discount = Number(calculateDiscount()) || 0;
+    const delivery = Number(getDeliveryPrice(formData.commune)) || 0;
+    const final = currentTotal - discount + delivery;
+    return Math.max(0, Math.round(final));
   };
 
   // Usar configuraciones dinámicas

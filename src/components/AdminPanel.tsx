@@ -26,6 +26,7 @@ import DailyOffersManagement from './admin/DailyOffersManagement';
 import DeliveryManagement from './admin/DeliveryManagement';
 import CouponManagement from './admin/CouponManagement';
 import StoreLocationManagement from './admin/StoreLocationManagement';
+import ErrorBoundary from './ErrorBoundary';
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -226,7 +227,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
       {/* Main Content */}
       <div className="flex-1 lg:ml-0 pt-16 lg:pt-0">
         <div className="p-4 lg:p-8">
-          {renderCurrentView()}
+          <ErrorBoundary
+            fallback={(
+              <div className="min-h-[50vh] flex items-center justify-center">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-white mb-2">¡Oops! Algo salió mal</h2>
+                  <p className="text-gray-400 mb-4">Ha ocurrido un error inesperado en esta sección.</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  >
+                    Recargar página
+                  </button>
+                </div>
+              </div>
+            )}
+          >
+            {renderCurrentView()}
+          </ErrorBoundary>
         </div>
       </div>
     </div>

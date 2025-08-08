@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Search, Eye, CheckCircle, XCircle, Clock, Package, Truck, X, Filter } from 'lucide-react';
+import { Calendar, Search, Eye, CheckCircle, XCircle, Clock, Package, Truck, X, Filter, FileDown } from 'lucide-react';
 import { getOrders, updateOrderStatus, getOrderById } from '../../services/supabaseService';
 
 interface OrderItem {
@@ -99,6 +99,54 @@ const OrderManagement: React.FC = () => {
       setSelectedOrder(order);
       setShowDetailModal(true);
     }
+  };
+
+  // Exportar pedidos del día a Excel (CSV compatible con Excel, sin dependencias)
+  const exportTodayToExcel = () => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`; // formato esperado en order.date
+
+    const todaysOrders = orders.filter(o => o.date === todayStr);
+
+    const headers = ['ID','CLIENTE','TELEFONO','DIRECCION','COMUNA','ESTADO','FECHA','HORA','TOTAS'];
+    const escapeCSV = (val: unknown) => {
+      const s = (val ?? '').toString();
+      if (/[",\n]/.test(s)) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+
+    const lines: string[] = [];
+    lines.push(headers.join(','));
+    todaysOrders.forEach(o => {
+      const row = [
+        o.id,
+        o.customer_name,
+        o.customer_phone,
+        o.address,
+        o.commune,
+        o.status,
+        o.date,
+        o.time,
+        o.total?.toString() ?? '0',
+      ].map(escapeCSV).join(',');
+      lines.push(row);
+    });
+
+    const csvContent = '\uFEFF' + lines.join('\n'); // BOM para Excel
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pedidos_${todayStr}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Cálculos
@@ -210,9 +258,20 @@ const OrderManagement: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="text-center lg:text-left">
-          <h1 className="text-4xl font-bold text-white mb-2">Gestión de Pedidos</h1>
-          <p className="text-gray-400 text-lg">Administra y rastrea todos los pedidos de manera eficiente</p>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="text-center lg:text-left">
+            <h1 className="text-4xl font-bold text-white mb-2">Gestión de Pedidos</h1>
+            <p className="text-gray-400 text-lg">Administra y rastrea todos los pedidos de manera eficiente</p>
+          </div>
+          <div className="flex justify-center lg:justify-end">
+            <button
+              onClick={exportTodayToExcel}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors"
+            >
+              <FileDown size={18} />
+              Exportar a Excel (Hoy)
+            </button>
+          </div>
         </div>
 
         {/* Estadísticas */}

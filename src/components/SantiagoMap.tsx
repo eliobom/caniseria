@@ -28,7 +28,33 @@ const SantiagoMap: React.FC = () => {
     try {
       setIsLoading(true);
       const data = await getStoreLocations();
-      setLocations(data || []);
+      if (!Array.isArray(data)) {
+        console.warn('[SantiagoMap] getStoreLocations no devolvió un array:', data);
+        setLocations([]);
+        return;
+      }
+      // Sanitizar y asegurar IDs estables
+      const sanitized = data.map((l: any, i: number) => ({
+        id: String(l?.id ?? `map-${i}`),
+        name: String(l?.name ?? `Local ${i + 1}`),
+        address: String(l?.address ?? ''),
+        commune: String(l?.commune ?? ''),
+        phone: String(l?.phone ?? ''),
+        hours: String(l?.hours ?? ''),
+        latitude: Number.isFinite(Number(l?.latitude)) ? Number(l.latitude) : -33.4489,
+        longitude: Number.isFinite(Number(l?.longitude)) ? Number(l.longitude) : -70.6693,
+        is_active: Boolean(l?.is_active ?? true),
+        description: l?.description ? String(l.description) : undefined,
+      }));
+      // Unicidad de IDs
+      const seen = new Map<string, number>();
+      const uniqued = sanitized.map((loc) => {
+        const base = loc.id || 'loc';
+        const count = seen.get(base) || 0;
+        seen.set(base, count + 1);
+        return count === 0 ? loc : { ...loc, id: `${base}-${count}` };
+      });
+      setLocations(uniqued);
     } catch (error) {
       console.error('Error loading store locations:', error);
     } finally {
@@ -76,7 +102,7 @@ const SantiagoMap: React.FC = () => {
 
             {/* Locales en el Mapa */}
             <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {locations.map((location, index) => (
+              {(Array.isArray(locations) ? locations : []).map((location, index) => (
                 <div
                   key={location.id}
                   className={`bg-gray-800/80 backdrop-blur-sm rounded-lg p-4 border transition-all duration-200 cursor-pointer hover:scale-105 ${

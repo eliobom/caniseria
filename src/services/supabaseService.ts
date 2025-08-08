@@ -1198,8 +1198,9 @@ export const createCoupon = async (couponData: any) => {
         code: couponData.code.toUpperCase(),
         name: couponData.name,
         description: couponData.description,
-        type: couponData.type,
-        value: couponData.value,
+        // Usar columnas reales del esquema: discount_type y discount_value
+        discount_type: couponData.type || couponData.discount_type,
+        discount_value: couponData.value ?? couponData.discount_value,
         min_order_amount: couponData.min_order_amount || 0,
         max_discount_amount: couponData.max_discount_amount,
         usage_limit: couponData.usage_limit,
@@ -1228,8 +1229,13 @@ export const updateCoupon = async (id: string, updates: any) => {
     if (updates.code) updateData.code = updates.code.toUpperCase();
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.description !== undefined) updateData.description = updates.description;
-    if (updates.type !== undefined) updateData.type = updates.type;
-    if (updates.value !== undefined) updateData.value = updates.value;
+    // Mapear a columnas del esquema real
+    if (updates.type !== undefined || updates.discount_type !== undefined) {
+      updateData.discount_type = updates.type ?? updates.discount_type;
+    }
+    if (updates.value !== undefined || updates.discount_value !== undefined) {
+      updateData.discount_value = updates.value ?? updates.discount_value;
+    }
     if (updates.min_order_amount !== undefined) updateData.min_order_amount = updates.min_order_amount;
     if (updates.max_discount_amount !== undefined) updateData.max_discount_amount = updates.max_discount_amount;
     if (updates.usage_limit !== undefined) updateData.usage_limit = updates.usage_limit;
@@ -1322,17 +1328,32 @@ export const getStoreLocations = async () => {
 };
 
 export const getAllStoreLocations = async () => {
-  const { data, error } = await supabase
-    .from('store_locations')
-    .select('*')
-    .order('created_at', { ascending: false });
+  try {
+    // Intentar autenticación anónima si no hay sesión
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      const { error: authError } = await supabase.auth.signInAnonymously();
+      if (authError) {
+        console.warn('Could not authenticate:', authError);
+      }
+    }
 
-  if (error) {
-    console.error('Error fetching all store locations:', error);
+    const { data, error } = await supabase
+      .from('store_locations')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching all store locations:', error);
+      return [];
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in getAllStoreLocations:', error);
     return [];
   }
-
-  return data;
 };
 
 export const getStoreLocationById = async (id: string) => {

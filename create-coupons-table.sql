@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS coupons (
     code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    type VARCHAR(20) NOT NULL CHECK (type IN ('percentage', 'fixed')),
-    value DECIMAL(10,2) NOT NULL,
+    discount_type VARCHAR(20) NOT NULL CHECK (discount_type IN ('percentage', 'fixed')),
+    discount_value DECIMAL(10,2) NOT NULL,
     min_order_amount DECIMAL(10,2) DEFAULT 0,
     max_discount_amount DECIMAL(10,2),
     usage_limit INTEGER,
@@ -99,10 +99,10 @@ BEGIN
     END IF;
     
     -- Calcular descuento
-    IF coupon_record.type = 'percentage' THEN
-        calculated_discount := order_total * (coupon_record.value / 100);
+    IF coupon_record.discount_type = 'percentage' THEN
+        calculated_discount := order_total * (coupon_record.discount_value / 100);
     ELSE
-        calculated_discount := coupon_record.value;
+        calculated_discount := coupon_record.discount_value;
     END IF;
     
     -- Aplicar límite máximo de descuento si existe
@@ -188,7 +188,7 @@ CREATE INDEX IF NOT EXISTS idx_coupon_usage_order_id ON coupon_usage(order_id);
 -- 7. INSERTAR CUPONES DE EJEMPLO
 -- =====================================================
 
-INSERT INTO coupons (code, name, description, type, value, min_order_amount, usage_limit, is_active)
+INSERT INTO coupons (code, name, description, discount_type, discount_value, min_order_amount, usage_limit, is_active)
 VALUES 
     ('DESCUENTO10', 'Descuento 10%', 'Descuento del 10% en tu pedido', 'percentage', 10, 0, NULL, true),
     ('BIENVENIDO', 'Cupón de Bienvenida', 'Descuento de $2000 para nuevos clientes', 'fixed', 2000, 10000, 100, true),

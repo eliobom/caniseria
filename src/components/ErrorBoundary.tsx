@@ -3,6 +3,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  label?: string;
 }
 
 interface State {
@@ -21,7 +22,8 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Error capturado por ErrorBoundary:', error, errorInfo);
+    const label = this.props.label ? `[${this.props.label}] ` : '';
+    console.error(`${label}Error capturado por ErrorBoundary:`, error, errorInfo);
   }
 
   render() {

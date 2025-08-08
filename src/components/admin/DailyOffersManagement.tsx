@@ -74,23 +74,47 @@ const DailyOffersManagement: React.FC = () => {
     }
   };
 
+  // En la función handleSubmit (línea 77), mejora el manejo de errores:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
+  
     try {
+      // Validaciones antes de enviar
+      if (!formData.product_id) {
+        throw new Error('Debe seleccionar un producto');
+      }
+      if (formData.original_price <= 0) {
+        throw new Error('El precio original debe ser mayor a 0');
+      }
+      if (formData.discount_percentage < 1 || formData.discount_percentage > 99) {
+        throw new Error('El descuento debe estar entre 1% y 99%');
+      }
+      if (new Date(formData.start_date) > new Date(formData.end_date)) {
+        throw new Error('La fecha de inicio no puede ser posterior a la fecha de fin');
+      }
+  
+      // Preparar datos con validación
+      const offerData = {
+        ...formData,
+        original_price: Number(formData.original_price),
+        discount_percentage: Number(formData.discount_percentage)
+      };
+  
       if (editingOffer) {
-        await updateDailyOffer(editingOffer.id, formData);
+        await updateDailyOffer(editingOffer.id, offerData);
       } else {
-        await createDailyOffer(formData);
+        await createDailyOffer(offerData);
       }
       
       await fetchOffers();
       setIsModalOpen(false);
       resetForm();
-    } catch (error) {
+      alert('Oferta guardada exitosamente');
+    } catch (error: any) {
       console.error('Error saving offer:', error);
-      alert('Error al guardar la oferta');
+      const errorMessage = error.message || 'Error al guardar la oferta';
+      alert(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

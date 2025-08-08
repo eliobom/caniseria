@@ -169,17 +169,6 @@ const DeliveryManagement: React.FC = () => {
           <MapPin className="inline mr-2" size={16} />
           Comunas y Precios
         </button>
-        <button
-          onClick={() => setActiveTab('cupones')}
-          className={`px-4 py-2 rounded-md transition-colors ${
-            activeTab === 'cupones'
-              ? 'bg-yellow-400 text-black font-semibold'
-              : 'text-gray-300 hover:text-white'
-          }`}
-        >
-          <Percent className="inline mr-2" size={16} />
-          Cupones de Descuento
-        </button>
       </div>
 
       {/* Contenido de Comunas */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MapPin, Plus, Edit, Trash2, Eye, EyeOff, Phone, Clock, Save, X } from 'lucide-react';
 import { 
   getStoreLocations, 
@@ -22,6 +22,52 @@ interface StoreLocation {
   description?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+// ErrorBoundary local para evitar pantalla en blanco
+class LocalErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error?: Error }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: any) {
+    console.error('Error en StoreLocationManagement:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <div className="text-center bg-gray-800/60 border border-gray-700 rounded-xl p-8 max-w-lg">
+            <h2 className="text-2xl font-bold text-white mb-2">¡Ups! Algo salió mal en Locales</h2>
+            <p className="text-gray-400 mb-4">Se produjo un error al mostrar esta sección.</p>
+            {this.state.error?.message && (
+              <pre className="text-left text-sm text-red-300 bg-gray-900/70 p-3 rounded mb-4 overflow-x-auto">
+                {this.state.error.message}
+              </pre>
+            )}
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => this.setState({ hasError: false, error: undefined })}
+                className="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700 text-white"
+              >
+                Volver a intentar
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Recargar página
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children as any;
+  }
 }
 
 const StoreLocationManagement: React.FC = () => {
@@ -57,18 +103,81 @@ const StoreLocationManagement: React.FC = () => {
     loadLocations();
   }, []);
 
-  const loadLocations = async () => {
+  // Agregar al inicio del componente, después de los useState
+  const isLoadingRef = useRef(false);
+  
+  const loadLocations = useCallback(async () => {
+    // Evitar múltiples llamadas simultáneas
+    if (isLoadingRef.current) {
+      console.log('loadLocations ya está ejecutándose, saltando...');
+      return;
+    }
+    
     try {
+      isLoadingRef.current = true;
       setIsLoading(true);
       const data = await getAllStoreLocations();
-      setLocations(data || []);
+      
+      // Validación robusta
+      if (!Array.isArray(data)) {
+        console.warn('getAllStoreLocations no devolvió un array:', data);
+        setLocations([]);
+        return;
+      }
+      
+      // Sanitización mejorada con IDs completamente estables
+      const sanitized = data
+        .filter(location => location && typeof location === 'object')
+        .map((location: any, index: number) => {
+          const baseId = location?.id || `fallback-${index}`;
+          const stableId = String(baseId).replace(/[^a-zA-Z0-9-_]/g, '-');
+          
+          return {
+            id: stableId,
+            name: String(location?.name || `Local ${index + 1}`).trim(),
+            address: String(location?.address || 'Dirección no especificada').trim(),
+            commune: String(location?.commune || 'Comuna no especificada').trim(),
+            phone: String(location?.phone || 'Teléfono no especificado').trim(),
+            hours: String(location?.hours || 'Horarios no especificados').trim(),
+            latitude: Number.isFinite(Number(location?.latitude)) ? Number(location.latitude) : -33.4489,
+            longitude: Number.isFinite(Number(location?.longitude)) ? Number(location.longitude) : -70.6693,
+            is_active: Boolean(location?.is_active ?? true),
+            description: location?.description ? String(location.description).trim() : '',
+            created_at: location?.created_at ? String(location.created_at) : undefined,
+            updated_at: location?.updated_at ? String(location.updated_at) : undefined,
+          };
+        });
+      
+      // Verificar y garantizar unicidad de IDs
+      const idMap = new Map();
+      const uniqueSanitized = sanitized.map((loc, index) => {
+        let finalId = loc.id;
+        let counter = 1;
+        
+        while (idMap.has(finalId)) {
+          finalId = `${loc.id}-${counter}`;
+          counter++;
+        }
+        
+        idMap.set(finalId, true);
+        return { ...loc, id: finalId };
+      });
+      
+      console.log('IDs finales cargados:', uniqueSanitized.map(loc => loc.id));
+      setLocations(uniqueSanitized);
+      
     } catch (error) {
       console.error('Error loading locations:', error);
-      setFeedback({ type: 'error', message: 'Error al cargar los locales' });
+      setFeedback({ 
+        type: 'error', 
+        message: 'Error al cargar los locales. Por favor, recarga la página.' 
+      });
+      setLocations([]);
     } finally {
       setIsLoading(false);
+      isLoadingRef.current = false;
     }
-  };
+  }, []);
 
   const resetForm = () => {
     setFormData({
@@ -108,24 +217,54 @@ const StoreLocationManagement: React.FC = () => {
       setFeedback({ type: 'error', message: 'Por favor completa todos los campos obligatorios' });
       return;
     }
+  
+    setIsSubmitting(true);
+    setFeedback(null);
 
     try {
-      setIsSubmitting(true);
+      let result;
       
       if (editingLocation) {
-        await updateStoreLocation(editingLocation.id, formData);
+        // Actualización: actualizar en la base de datos primero
+        result = await updateStoreLocation(editingLocation.id, formData);
+        
+        // Luego actualizar el estado local optimísticamente
+        setLocations(prev => prev.map(loc => 
+          loc.id === editingLocation.id 
+            ? { 
+                ...loc, 
+                ...formData,
+                id: editingLocation.id, // Mantener el ID original
+                updated_at: new Date().toISOString()
+              }
+            : loc
+        ));
+        
         setFeedback({ type: 'success', message: 'Local actualizado exitosamente' });
       } else {
-        await createStoreLocation(formData);
+        // Creación: crear en la base de datos primero
+        result = await createStoreLocation(formData);
+        
+        // Luego agregar al estado local con el ID devuelto por la base de datos
+        const newLocation: StoreLocation = {
+          id: result?.id || `temp-${Date.now()}`, // Usar el ID de la BD o temporal
+          ...formData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        setLocations(prev => [newLocation, ...prev]);
         setFeedback({ type: 'success', message: 'Local creado exitosamente' });
       }
-      
-      await loadLocations();
+  
       setShowModal(false);
       resetForm();
-    } catch (error) {
-      console.error('Error saving location:', error);
-      setFeedback({ type: 'error', message: 'Error al guardar el local' });
+    } catch (error: any) {
+      console.error('Error al guardar el local:', error);
+      setFeedback({ 
+        type: 'error', 
+        message: error?.message || 'Ocurrió un error al guardar el local. Intenta nuevamente.'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -135,45 +274,67 @@ const StoreLocationManagement: React.FC = () => {
     if (!confirm('¿Estás seguro de que quieres eliminar este local?')) return;
     
     try {
+      // Actualización optimista del estado local primero
+      const originalLocations = [...locations];
+      setLocations(prev => prev.filter(loc => loc.id !== id));
+      
+      // Luego ejecutar la operación en la base de datos
       await deleteStoreLocation(id);
-      await loadLocations();
+      
       setFeedback({ type: 'success', message: 'Local eliminado exitosamente' });
     } catch (error) {
       console.error('Error deleting location:', error);
+      // Revertir el estado en caso de error
+      setLocations(originalLocations);
       setFeedback({ type: 'error', message: 'Error al eliminar el local' });
     }
   };
 
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
     try {
+      // Actualización optimista del estado local primero
+      const originalLocations = [...locations];
+      setLocations(prev => prev.map(loc => 
+        loc.id === id ? { ...loc, is_active: !currentStatus } : loc
+      ));
+      
+      // Luego ejecutar la operación en la base de datos
       await toggleStoreLocationStatus(id, !currentStatus);
-      await loadLocations();
+      
       setFeedback({ 
         type: 'success', 
         message: `Local ${!currentStatus ? 'activado' : 'desactivado'} exitosamente` 
       });
     } catch (error) {
       console.error('Error toggling location status:', error);
+      // Revertir el estado en caso de error
+      setLocations(originalLocations);
       setFeedback({ type: 'error', message: 'Error al cambiar el estado del local' });
     }
   };
 
   const getCoordinatesFromAddress = async (address: string, commune: string) => {
-    // Aquí podrías integrar con una API de geocodificación como Google Maps
-    // Por ahora, asignamos coordenadas aproximadas de Santiago
-    const defaultCoords = {
-      latitude: -33.4489 + (Math.random() - 0.5) * 0.1,
-      longitude: -70.6693 + (Math.random() - 0.5) * 0.1
-    };
-    
-    setFormData(prev => ({
-      ...prev,
-      latitude: defaultCoords.latitude,
-      longitude: defaultCoords.longitude
-    }));
+    try {
+      // Aquí podrías integrar con una API de geocodificación como Google Maps
+      // Por ahora, asignamos coordenadas aproximadas de Santiago
+      const defaultCoords = {
+        latitude: -33.4489 + (Math.random() - 0.5) * 0.1,
+        longitude: -70.6693 + (Math.random() - 0.5) * 0.1
+      };
+      
+      setFormData(prev => ({
+        ...prev,
+        latitude: Number.isFinite(Number(defaultCoords.latitude)) ? Number(defaultCoords.latitude) : 0,
+        longitude: Number.isFinite(Number(defaultCoords.longitude)) ? Number(defaultCoords.longitude) : 0
+      }));
+    } catch (err) {
+      console.warn('No se pudieron obtener coordenadas. Usando 0,0 como fallback.');
+      setFormData(prev => ({ ...prev, latitude: 0, longitude: 0 }));
+    }
   };
 
   return (
+    <LocalErrorBoundary>
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
@@ -259,7 +420,10 @@ const StoreLocationManagement: React.FC = () => {
           ) : (
             <div className="divide-y divide-gray-700">
               {locations.map((location) => (
-                <div key={location.id} className="p-6 hover:bg-gray-700/30 transition-colors">
+                <div
+                  key={location.id}
+                  className="p-6 hover:bg-gray-700/30 transition-colors"
+                >
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
@@ -494,6 +658,7 @@ const StoreLocationManagement: React.FC = () => {
         )}
       </div>
     </div>
+    </LocalErrorBoundary>
   );
 };
 
